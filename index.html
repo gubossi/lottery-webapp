@@ -24,6 +24,10 @@
     code.small{font-size:12px;background:#f6f6f6;padding:2px 6px;border-radius:6px}
     .danger{color:#b00020}
     .hint{background:#fafafa;border:1px dashed #ddd;border-radius:12px;padding:10px;margin-top:10px}
+    .badge{display:inline-flex;align-items:center;gap:6px;border:1px solid #ddd;border-radius:999px;padding:4px 10px;font-size:12px;color:#444;background:#f7f7f7}
+    .badge .dot{width:8px;height:8px;border-radius:999px;background:#666;display:inline-block}
+    .warn{border-color:#ffcc00;background:#fff7cc}
+    .warn .dot{background:#b8860b}
   </style>
 </head>
 <body>
@@ -41,6 +45,11 @@
         <label class="pill"><input id="keepLog" type="checkbox" checked /> 추첨 로그 저장(브라우저)</label>
         <button id="btnDraw" onclick="runDraw()">추첨하기</button>
         <button class="secondary" onclick="resetAll()">초기화</button>
+
+        <!-- ✅ 화면/로그에 전화번호 숨김 안내 배지 -->
+        <span id="privacyBadge" class="badge" title="화면/로그에는 전화번호를 저장하지 않고, CSV 다운로드에만 포함합니다.">
+          <span class="dot"></span> 전화번호: 화면·로그 미저장 / CSV만 포함
+        </span>
       </div>
 
       <div class="muted" style="margin-top:10px">
@@ -49,15 +58,15 @@
 
       <textarea id="raw" placeholder="예)
 홍길동,2015-03-01,010-1234-5678
-김철수,2014-11-20,010-1111-2222
+김철수,2014-11-20,01011112222
 
 또는(엑셀에서 3열 복사 후 붙여넣기: 탭 구분)
-홍길동    2015-03-01    010-1234-5678"></textarea>
+홍길동    2015-03-01    01012345678"></textarea>
 
       <div class="hint">
         <div class="muted">
           지원 형식: <code class="small">이름,생년월일,전화번호</code> / <code class="small">이름\t생년월일\t전화번호</code> / <code class="small">이름|생년월일|전화번호</code><br/>
-          ⚠️ 개인정보 보호를 위해 <b>화면/로그에는 전화번호를 저장하지 않고</b>, <b>CSV 다운로드에만 포함</b>됩니다.
+          생년월일은 <code class="small">YYYY-MM-DD</code> 권장. 전화번호는 자동으로 하이픈 정리되어 CSV에 저장됩니다.
         </div>
       </div>
     </div>
@@ -114,6 +123,40 @@
     return String(s ?? "").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   }
 
+  // ✅ 전화번호 자동 하이픈 정리
+  // - 01012345678 -> 010-1234-5678
+  // - 0101234567  -> 010-123-4567
+  // - 0212345678  -> 02-1234-5678
+  // - 0311234567  -> 031-123-4567 등
+  function normalizePhone(input){
+    const raw = String(input ?? "").trim();
+    if(!raw) return "";
+    // keep digits only
+    const digits = raw.replace(/\D/g, "");
+    if(!digits) return raw; // non-digit input fallback
+
+    // mobile 010/011/016/017/018/019 patterns
+    if(/^01\d/.test(digits)){
+      if(digits.length === 11) return `${digits.slice(0,3)}-${digits.slice(3,7)}-${digits.slice(7)}`;
+      if(digits.length === 10) return `${digits.slice(0,3)}-${digits.slice(3,6)}-${digits.slice(6)}`;
+      return digits;
+    }
+
+    // Seoul area 02
+    if(digits.startsWith("02")){
+      if(digits.length === 10) return `02-${digits.slice(2,6)}-${digits.slice(6)}`;
+      if(digits.length === 9)  return `02-${digits.slice(2,5)}-${digits.slice(5)}`;
+      return digits;
+    }
+
+    // Other area codes (3 digits commonly)
+    if(digits.length === 10) return `${digits.slice(0,3)}-${digits.slice(3,6)}-${digits.slice(6)}`;
+    if(digits.length === 11) return `${digits.slice(0,3)}-${digits.slice(3,7)}-${digits.slice(7)}`;
+
+    // fallback (e.g., extensions)
+    return digits;
+  }
+
   // Parse: comma/tab/pipe
   function parseLine(line){
     let parts = [];
@@ -126,7 +169,7 @@
 
     const name  = parts[0] || "";
     const dob   = parts[1] || "";
-    const phone = parts[2] || "";
+    const phone = normalizePhone(parts[2] || "");
 
     return { name, dob, phone, raw: line };
   }
@@ -156,13 +199,13 @@
     }).join("");
   }
 
-  // ✅ 로그 저장용: 전화번호 제거한 스냅샷
+  // ✅ 로그 저장용: 전화번호 제거
   function stripPhone(items){
     return items.map(x=>({ name:x.name, dob:x.dob }));
   }
 
   let lastResult = null;
-  const LOG_KEY = "lottery_logs_v3";
+  const LOG_KEY = "lottery_logs_v4";
 
   function loadLogs(){
     try{
@@ -193,11 +236,28 @@
     }).join("");
   }
 
+  function setPrivacyBadgeWarning(isWarn){
+    const b = document.getElementById("privacyBadge");
+    if(!b) return;
+    if(isWarn) b.classList.add("warn");
+    else b.classList.remove("warn");
+  }
+
   function runDraw(){
     const drawTitle = document.getElementById("drawTitle").value.trim();
-    const rawText = document.getElementById("raw").value;
 
+    // ✅ 추첨명 미입력 시 경고(진행은 가능)
+    if(!drawTitle){
+      setPrivacyBadgeWarning(true);
+      const go = confirm("추첨명이 비어 있습니다. 그래도 추첨을 진행할까요?\n(권장: 추첨명을 입력하면 기록/CSV 관리가 편합니다.)");
+      if(!go) return;
+    }else{
+      setPrivacyBadgeWarning(false);
+    }
+
+    const rawText = document.getElementById("raw").value;
     let list = parseLines(rawText);
+
     const useDedupe = document.getElementById("dedupe").checked;
     if(useDedupe) list = dedupeByNameDob(list);
 
@@ -232,7 +292,7 @@
       waitlist
     };
 
-    // ✅ 로그에는 전화번호 제거해서 저장
+    // ✅ 로그에는 전화번호 제외
     const keepLog = document.getElementById("keepLog").checked;
     if(keepLog){
       const logs = loadLogs();
@@ -259,6 +319,7 @@
     document.getElementById("btnWcsv").disabled = true;
     document.getElementById("btnAcsv").disabled = true;
     lastResult = null;
+    setPrivacyBadgeWarning(false);
   }
 
   function clearLog(){
