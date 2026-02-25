@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>프로그램 신청자 추첨</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:16px;line-height:1.45}
+    h1{font-size:20px;margin:0 0 12px}
+    .row{display:grid;grid-template-columns:1fr;gap:12px;max-width:980px}
+    .card{border:1px solid #ddd;border-radius:14px;padding:14px;background:#fff}
+    textarea{width:100%;min-height:160px;resize:vertical;border:1px solid #ccc;border-radius:10px;padding:10px;font-size:14px}
+    input[type="number"]{width:90px;padding:6px 8px;border:1px solid #ccc;border-radius:10px}
+    button{padding:10px 14px;border:1px solid #333;border-radius:12px;background:#111;color:#fff;cursor:pointer}
+    button.secondary{background:#fff;color:#111;border-color:#999}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    .inline{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+    .pill{display:inline-flex;align-items:center;gap:8px;border:1px solid #ddd;border-radius:999px;padding:6px 10px}
+    .muted{color:#666;font-size:13px}
+    ol,ul{margin:8px 0 0 18px}
+    .split{display:grid;grid-template-columns:1fr;gap:12px}
+    @media (min-width:900px){ .split{grid-template-columns:1fr 1fr} }
+    code.small{font-size:12px;background:#f6f6f6;padding:2px 6px;border-radius:6px}
+    .danger{color:#b00020}
+  </style>
+</head>
+<body>
+  <h1>🎯 프로그램 신청자 추첨(랜덤)</h1>
+
+  <div class="row">
+    <div class="card">
+      <div class="muted">한 줄에 1명씩 붙여넣기 (예: “홍길동”, “홍길동|2015-03-01” 같이 써도 OK — | 앞만 이름으로 표시)</div>
+      <textarea id="raw" placeholder="예)
+박준환
+박서현
+유다영
+..."></textarea>
+
+      <div class="inline" style="margin-top:10px">
+        <span class="pill">선발 <input id="pickCount" type="number" min="0" value="10" /> 명</span>
+        <label class="pill"><input id="dedupe" type="checkbox" checked /> 중복 제거</label>
+        <label class="pill"><input id="keepLog" type="checkbox" checked /> 추첨 로그 저장(브라우저)</label>
+        <button id="btnDraw" onclick="runDraw()">추첨하기</button>
+        <button class="secondary" onclick="resetAll()">초기화</button>
+      </div>
+
+      <div class="muted" style="margin-top:10px">
+        ※ “추첨 로그 저장”은 이 컴퓨터/브라우저에만 저장됩니다(서버 전송 없음). 필요하면 CSV로 내려받아 보관하세요.
+      </div>
+    </div>
+
+    <div class="split">
+      <div class="card">
+        <div class="inline" style="justify-content:space-between">
+          <div><b>✅ 선정자</b> <span class="muted" id="winnerCount"></span></div>
+          <button class="secondary" id="btnWcsv" onclick="downloadCSV('winners')" disabled>선정자 CSV</button>
+        </div>
+        <ol id="winners"></ol>
+      </div>
+
+      <div class="card">
+        <div class="inline" style="justify-content:space-between">
+          <div><b>🕒 대기자</b> <span class="muted" id="waitCount"></span></div>
+          <button class="secondary" id="btnAcsv" onclick="downloadCSV('all')" disabled>전체결과 CSV</button>
+        </div>
+        <ol id="waitlist"></ol>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="inline" style="justify-content:space-between">
+        <div><b>🧾 추첨 로그</b> <span class="muted">(최근 10회)</span></div>
+        <div class="inline">
+          <button class="secondary" onclick="downloadCSV('log')">로그 CSV</button>
+          <button class="secondary danger" onclick="clearLog()">로그 삭제</button>
+        </div>
+      </div>
+      <div class="muted" style="margin-top:8px">
+        로그에는 <code class="small">추첨일시, 총인원, 중복제거여부, 선발인원, 선정자/대기자</code> 가 저장됩니다.
+      </div>
+      <ol id="log"></ol>
+    </div>
+  </div>
+
+<script>
+  // ---- Utilities ----
+  function nowKSTISOString(){
+    // user timezone is Asia/Seoul; browser should already be local KST for user.
+    const d = new Date();
+    const pad = (n)=> String(n).padStart(2,'0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+
+  // Fisher–Yates shuffle (more correct than sort(Math.random()-0.5))
+  function shuffle(arr){
+    for(let i=arr.length-1; i>0; i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function parseLines(text){
+    // Accept "이름|기타" format; we keep full raw but display name first.
+    const lines = text.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+    return lines.map(l=>{
+      const parts = l.split("|");
+      return { raw: l, name: parts[0].trim() };
+    });
+  }
+
+  function dedupeByRaw(list){
+    const seen = new Set();
+    const out = [];
+    for(const item of list){
+      const key = item.raw; // strict; you can change to item.name if needed
+      if(seen.has(key)) continue;
+      seen.add(key);
+      out.push(item);
+    }
+    return out;
+  }
+
+  function renderList(el, items){
+    el.innerHTML = items.map(x=>`<li>${escapeHtml(x.name)} <span class="muted">${x.raw !== x.name ? "(" + escapeHtml(x.raw) + ")" : ""}</span></li>`).join("");
+  }
+
+  function escapeHtml(s){
+    return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+
+  // ---- State ----
+  let lastResult = null; // {timestamp, total, dedupe, pickCount, winners, waitlist}
+  const LOG_KEY = "lottery_logs_v1";
+
+  function loadLogs(){
+    try{
+      const raw = localStorage.getItem(LOG_KEY);
+      return raw ? JSON.parse(raw) : [];
+    }catch(e){
+      return [];
+    }
+  }
+  function saveLogs(logs){
+    localStorage.setItem(LOG_KEY, JSON.stringify(logs));
+  }
+
+  function renderLogs(){
+    const logs = loadLogs().slice(-10).reverse();
+    const el = document.getElementById("log");
+    if(logs.length === 0){
+      el.innerHTML = "<li class='muted'>저장된 로그가 없습니다.</li>";
+      return;
+    }
+    el.innerHTML = logs.map(l=>{
+      const meta = `${l.timestamp} · 총 ${l.total}명 · 선발 ${l.pickCount}명 · 중복제거 ${l.dedupe ? "ON" : "OFF"}`;
+      const winners = l.winners.map(x=>x.name).join(", ");
+      return `<li>
+        <div><b>${escapeHtml(meta)}</b></div>
+        <div class="muted">선정자: ${escapeHtml(winners)}</div>
+      </li>`;
+    }).join("");
+  }
+
+  // ---- Actions ----
+  function runDraw(){
+    const rawText = document.getElementById("raw").value;
+    let list = parseLines(rawText);
+
+    const useDedupe = document.getElementById("dedupe").checked;
+    if(useDedupe) list = dedupeByRaw(list);
+
+    const pickCount = Math.max(0, parseInt(document.getElementById("pickCount").value || "0", 10));
+    const total = list.length;
+
+    if(total === 0){
+      alert("신청자 명단을 입력해 주세요.");
+      return;
+    }
+
+    const shuffled = shuffle(list.slice());
+    const winners = shuffled.slice(0, Math.min(pickCount, total));
+    const waitlist = shuffled.slice(Math.min(pickCount, total));
+
+    // Render
+    renderList(document.getElementById("winners"), winners);
+    renderList(document.getElementById("waitlist"), waitlist);
+    document.getElementById("winnerCount").textContent = `(${winners.length}명)`;
+    document.getElementById("waitCount").textContent = `(${waitlist.length}명)`;
+
+    // Enable downloads
+    document.getElementById("btnWcsv").disabled = false;
+    document.getElementById("btnAcsv").disabled = false;
+
+    // Save last result
+    lastResult = {
+      timestamp: nowKSTISOString(),
+      total, dedupe: useDedupe, pickCount,
+      winners, waitlist
+    };
+
+    // Log
+    const keepLog = document.getElementById("keepLog").checked;
+    if(keepLog){
+      const logs = loadLogs();
+      logs.push(lastResult);
+      saveLogs(logs);
+      renderLogs();
+    }
+  }
+
+  function resetAll(){
+    document.getElementById("raw").value = "";
+    document.getElementById("winners").innerHTML = "";
+    document.getElementById("waitlist").innerHTML = "";
+    document.getElementById("winnerCount").textContent = "";
+    document.getElementById("waitCount").textContent = "";
+    document.getElementById("btnWcsv").disabled = true;
+    document.getElementById("btnAcsv").disabled = true;
+    lastResult = null;
+  }
+
+  function clearLog(){
+    if(confirm("저장된 추첨 로그를 모두 삭제할까요?")){
+      localStorage.removeItem(LOG_KEY);
+      renderLogs();
+    }
+  }
+
+  function downloadCSV(mode){
+    const rows = [];
+    const BOM = "\uFEFF"; // Excel 한글 깨짐 방지
+    const q = (v)=> `"${String(v ?? "").replace(/"/g,'""')}"`;
+
+    if(mode === "winners"){
+      if(!lastResult){ alert("먼저 추첨을 실행해 주세요."); return; }
+      rows.push(["구분","순번","이름","원본입력"].map(q).join(","));
+      lastResult.winners.forEach((x, i)=>{
+        rows.push(["선정", i+1, x.name, x.raw].map(q).join(","));
+      });
+      saveBlob(`${lastResult.timestamp.replace(/[: ]/g,'-')}_선정자.csv`, BOM + rows.join("\n"));
+      return;
+    }
+
+    if(mode === "all"){
+      if(!lastResult){ alert("먼저 추첨을 실행해 주세요."); return; }
+      rows.push(["추첨일시","총인원","중복제거","선발인원","구분","순번","이름","원본입력"].map(q).join(","));
+      lastResult.winners.forEach((x, i)=>{
+        rows.push([lastResult.timestamp,lastResult.total,lastResult.dedupe?"ON":"OFF",lastResult.pickCount,"선정", i+1, x.name, x.raw].map(q).join(","));
+      });
+      lastResult.waitlist.forEach((x, i)=>{
+        rows.push([lastResult.timestamp,lastResult.total,lastResult.dedupe?"ON":"OFF",lastResult.pickCount,"대기", i+1, x.name, x.raw].map(q).join(","));
+      });
+      saveBlob(`${lastResult.timestamp.replace(/[: ]/g,'-')}_전체결과.csv`, BOM + rows.join("\n"));
+      return;
+    }
+
+    if(mode === "log"){
+      const logs = loadLogs();
+      if(logs.length === 0){ alert("저장된 로그가 없습니다."); return; }
+      rows.push(["추첨일시","총인원","중복제거","선발인원","선정자(이름목록)","대기자수"].map(q).join(","));
+      logs.forEach(l=>{
+        rows.push([l.timestamp,l.total,l.dedupe?"ON":"OFF",l.pickCount,l.winners.map(x=>x.name).join(" / "),l.waitlist.length].map(q).join(","));
+      });
+      saveBlob(`추첨로그.csv`, BOM + rows.join("\n"));
+      return;
+    }
+  }
+
+  function saveBlob(filename, content){
+    const blob = new Blob([content], {type:"text/csv;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  // initial render
+  renderLogs();
+</script>
+</body>
+</html>
