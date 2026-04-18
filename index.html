@@ -3,106 +3,618 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>프로그램 신청자 추첨</title>
+  <title>프로그램 신청자 추첨 | Welmoa</title>
+  <meta name="description" content="프로그램 신청자 명단을 붙여넣고 선정자·대기자를 랜덤 추첨할 수 있는 Welmoa 추첨 도구입니다." />
+  <link rel="stylesheet" href="https://tools.welmoa.kr/assets/site.css" />
+
   <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:16px;line-height:1.45}
-    h1{font-size:20px;margin:0 0 12px}
-    .row{display:grid;grid-template-columns:1fr;gap:12px;max-width:1020px}
-    .card{border:1px solid #ddd;border-radius:14px;padding:14px;background:#fff}
-    textarea{width:100%;min-height:170px;resize:vertical;border:1px solid #ccc;border-radius:10px;padding:10px;font-size:14px}
-    input[type="text"]{width:min(520px,100%);padding:8px 10px;border:1px solid #ccc;border-radius:10px}
-    input[type="number"]{width:90px;padding:6px 8px;border:1px solid #ccc;border-radius:10px}
-    button{padding:10px 14px;border:1px solid #333;border-radius:12px;background:#111;color:#fff;cursor:pointer}
-    button.secondary{background:#fff;color:#111;border-color:#999}
-    button:disabled{opacity:.5;cursor:not-allowed}
-    .inline{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
-    .pill{display:inline-flex;align-items:center;gap:8px;border:1px solid #ddd;border-radius:999px;padding:6px 10px}
-    .muted{color:#666;font-size:13px}
-    ol{margin:8px 0 0 18px}
-    .split{display:grid;grid-template-columns:1fr;gap:12px}
-    @media (min-width:900px){ .split{grid-template-columns:1fr 1fr} }
-    code.small{font-size:12px;background:#f6f6f6;padding:2px 6px;border-radius:6px}
-    .danger{color:#b00020}
-    .hint{background:#fafafa;border:1px dashed #ddd;border-radius:12px;padding:10px;margin-top:10px}
-    .badge{display:inline-flex;align-items:center;gap:6px;border:1px solid #ddd;border-radius:999px;padding:4px 10px;font-size:12px;color:#444;background:#f7f7f7}
-    .badge .dot{width:8px;height:8px;border-radius:999px;background:#666;display:inline-block}
-    .warn{border-color:#ffcc00;background:#fff7cc}
-    .warn .dot{background:#b8860b}
+    :root {
+      --lottery-accent: #3559a8;
+      --lottery-accent-dark: #2c4a8a;
+      --lottery-accent-soft: #edf3ff;
+      --lottery-surface: #ffffff;
+      --lottery-surface-soft: #f8fbff;
+      --lottery-border: #dfe7f3;
+      --lottery-text: #18212f;
+      --lottery-muted: #637287;
+      --lottery-shadow-soft: 0 10px 26px rgba(15, 23, 42, 0.05);
+      --lottery-radius-xl: 24px;
+      --lottery-radius-lg: 18px;
+      --lottery-radius-md: 14px;
+      --lottery-max: 1180px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at top left, rgba(53, 89, 168, 0.05), transparent 28%),
+        linear-gradient(180deg, #f7f9fc 0%, #f3f6fb 100%);
+      color: var(--lottery-text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      line-height: 1.6;
+    }
+
+    .container {
+      width: min(var(--lottery-max), calc(100% - 32px));
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .site-header {
+      position: relative;
+      top: auto;
+      z-index: 1;
+      background: #2c4058;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      box-shadow: none;
+    }
+
+    .header-inner {
+      min-height: 74px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding-top: 10px;
+      padding-bottom: 6px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: #ffffff;
+      font-weight: 900;
+      font-size: 1.35rem;
+      letter-spacing: -0.02em;
+    }
+
+    .site-header nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .site-header nav a {
+      color: rgba(255,255,255,0.92);
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 0.97rem;
+      padding: 10px 14px;
+      border-radius: 999px;
+      transition: 0.18s ease;
+    }
+
+    .site-header nav a:hover {
+      background: rgba(255,255,255,0.12);
+      color: #ffffff;
+    }
+
+    .lottery-page {
+      padding: 10px 0 56px;
+    }
+
+    .hero {
+      margin-bottom: 24px;
+    }
+
+    .hero-card {
+      position: relative;
+      overflow: hidden;
+      padding: 36px 36px 34px;
+      border-radius: 30px;
+      background: linear-gradient(135deg, rgba(53, 89, 168, 0.98), rgba(88, 125, 206, 0.94));
+      color: #fff;
+      box-shadow: 0 24px 54px rgba(53, 89, 168, 0.24);
+    }
+
+    .hero-card::after {
+      content: "";
+      position: absolute;
+      inset: auto -80px -80px auto;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.12);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 32px;
+      padding: 0 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.18);
+      color: #fff;
+      font-size: 0.9rem;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      margin-bottom: 14px;
+    }
+
+    .hero-card h1 {
+      margin: 0 0 12px;
+      font-size: clamp(2rem, 4vw, 2.8rem);
+      line-height: 1.18;
+      letter-spacing: -0.03em;
+      color: #fff;
+    }
+
+    .lead {
+      margin: 0;
+      max-width: 780px;
+      color: rgba(255,255,255,0.92);
+      font-size: 1.03rem;
+      line-height: 1.7;
+    }
+
+    .hero-actions {
+      margin-top: 22px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .btn-primary,
+    .btn-secondary,
+    button {
+      min-height: 50px;
+      padding: 12px 18px;
+      border-radius: 999px;
+      font: inherit;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: 0.18s ease;
+      box-sizing: border-box;
+    }
+
+    .btn-primary,
+    button:not(.secondary) {
+      appearance: none;
+      border: none;
+      background: linear-gradient(135deg, var(--lottery-accent), #4f72c8);
+      color: #fff;
+      box-shadow: 0 14px 26px rgba(53, 89, 168, 0.18);
+    }
+
+    .btn-primary:hover,
+    button:not(.secondary):hover {
+      transform: translateY(-1px);
+      background: linear-gradient(135deg, var(--lottery-accent-dark), #4567ba);
+    }
+
+    .btn-secondary,
+    button.secondary {
+      appearance: none;
+      border: 1px solid #cfe0ff;
+      background: #fff;
+      color: var(--lottery-accent);
+      box-shadow: none;
+    }
+
+    .btn-secondary:hover,
+    button.secondary:hover {
+      background: #f4f8ff;
+      border-color: #bdd2ff;
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      opacity: .55;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    .section {
+      margin-top: 28px;
+    }
+
+    .section-title {
+      margin: 0 0 16px;
+      font-size: 1.7rem;
+      letter-spacing: -0.03em;
+      color: var(--lottery-text);
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 18px;
+      max-width: none;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 18px;
+    }
+
+    @media (min-width:900px) {
+      .split { grid-template-columns: 1fr 1fr; }
+    }
+
+    .card {
+      background: var(--lottery-surface);
+      border: 1px solid var(--lottery-border);
+      border-radius: var(--lottery-radius-xl);
+      box-shadow: var(--lottery-shadow-soft);
+      padding: 24px 26px;
+    }
+
+    .card h2,
+    .card h3,
+    .card b {
+      color: var(--lottery-text);
+    }
+
+    .tool-title {
+      margin: 0 0 10px;
+      font-size: 1.28rem;
+      font-weight: 900;
+      line-height: 1.35;
+      letter-spacing: -0.02em;
+      color: var(--lottery-text);
+    }
+
+    .tool-desc,
+    .muted {
+      color: var(--lottery-muted);
+      line-height: 1.7;
+      font-size: 0.95rem;
+    }
+
+    .inline {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 44px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--lottery-border);
+      background: var(--lottery-surface-soft);
+      box-sizing: border-box;
+      color: var(--lottery-text);
+      font-weight: 700;
+      margin: 0;
+    }
+
+    textarea,
+    input[type="text"],
+    input[type="number"] {
+      width: 100%;
+      min-height: 50px;
+      border: 1px solid var(--lottery-border);
+      border-radius: 14px;
+      padding: 12px 14px;
+      box-sizing: border-box;
+      font: inherit;
+      background: #fff;
+      color: var(--lottery-text);
+      transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+    }
+
+    input[type="text"] {
+      width: min(420px, 100%);
+    }
+
+    input[type="number"] {
+      width: 96px;
+      min-height: 42px;
+      padding: 8px 10px;
+    }
+
+    textarea {
+      min-height: 220px;
+      resize: vertical;
+      line-height: 1.6;
+    }
+
+    textarea:focus,
+    input[type="text"]:focus,
+    input[type="number"]:focus {
+      outline: none;
+      border-color: #bfd1f8;
+      background: #fff;
+      box-shadow: 0 0 0 4px rgba(53, 89, 168, 0.12);
+    }
+
+    ol {
+      margin: 12px 0 0 22px;
+      padding: 0;
+    }
+
+    ol li + li {
+      margin-top: 8px;
+    }
+
+    code.small {
+      font-size: 12px;
+      background: #f3f6fb;
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+
+    .danger {
+      color: #b00020;
+    }
+
+    .hint {
+      background: #fbfcff;
+      border: 1px dashed #cfdbef;
+      border-radius: 16px;
+      padding: 14px 16px;
+      margin-top: 12px;
+    }
+
+    .badge-info {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 34px;
+      border: 1px solid var(--lottery-border);
+      border-radius: 999px;
+      padding: 0 12px;
+      font-size: 12px;
+      color: #44546b;
+      background: #f7f9fc;
+    }
+
+    .badge-info .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #666;
+      display: inline-block;
+    }
+
+    .warn {
+      border-color: #ffcc00;
+      background: #fff7cc;
+    }
+
+    .warn .dot {
+      background: #b8860b;
+    }
+
+    .panel-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .panel-title strong {
+      font-size: 1.08rem;
+      letter-spacing: -0.01em;
+    }
+
+    .section-divider {
+      margin-top: 6px;
+      padding-top: 18px;
+      border-top: 1px solid var(--lottery-border);
+    }
+
+    .site-footer {
+      margin-top: 48px;
+      border-top: 1px solid rgba(223, 231, 243, 0.9);
+      background: rgba(255, 255, 255, 0.78);
+    }
+
+    .footer-inner {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      padding-top: 22px;
+      padding-bottom: 18px;
+      color: var(--lottery-muted);
+      font-size: 0.95rem;
+    }
+
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .footer-links a {
+      color: var(--lottery-muted);
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .footer-links a:hover {
+      color: var(--lottery-accent-dark);
+    }
+
+    @media (max-width: 720px) {
+      .container {
+        width: min(var(--lottery-max), calc(100% - 20px));
+      }
+
+      .header-inner,
+      .footer-inner {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .header-inner {
+        padding-top: 6px;
+        padding-bottom: 6px;
+      }
+
+      .hero-card {
+        padding: 26px 20px 24px;
+        border-radius: 24px;
+      }
+
+      .card {
+        padding: 20px 18px;
+      }
+
+      .site-header nav {
+        width: 100%;
+      }
+
+      .site-header nav a {
+        padding-left: 10px;
+        padding-right: 10px;
+      }
+
+      .panel-title {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      input[type="text"] {
+        width: 100%;
+      }
+    }
   </style>
 </head>
 <body>
-  <h1>🎯 프로그램 신청자 추첨(랜덤)</h1>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="https://tools.welmoa.kr/">Welmoa</a>
+      <nav>
+        <a href="https://tools.welmoa.kr/">홈</a>
+        <a href="https://tools.welmoa.kr/tools/">도구</a>
+        <a href="https://tools.welmoa.kr/blog/">콘텐츠</a>
+        <a href="https://tools.welmoa.kr/about/">소개</a>
+        <a href="https://tools.welmoa.kr/privacy/">개인정보처리방침</a>
+        <a href="https://tools.welmoa.kr/terms/">이용약관</a>
+      </nav>
+    </div>
+  </header>
 
-  <div class="row">
-    <div class="card">
-      <div class="inline">
-        <span class="pill">
-          추첨명
-          <input id="drawTitle" type="text" placeholder="예) 겨울방학 디지털드로잉 꿈나무반" />
-        </span>
-        <span class="pill">선발 <input id="pickCount" type="number" min="0" value="10" /> 명</span>
-        <label class="pill"><input id="dedupe" type="checkbox" checked /> 중복 제거(이름+생년월일)</label>
-        <label class="pill"><input id="keepLog" type="checkbox" checked /> 추첨 로그 저장(브라우저)</label>
-        <button id="btnDraw" onclick="runDraw()">추첨하기</button>
-        <button class="secondary" onclick="resetAll()">초기화</button>
-
-        <!-- ✅ 화면/로그에 전화번호 숨김 안내 배지 -->
-        <span id="privacyBadge" class="badge" title="화면/로그에는 전화번호를 저장하지 않고, CSV 다운로드에만 포함합니다.">
-          <span class="dot"></span> 전화번호: 화면·로그 미저장 / CSV만 포함
-        </span>
+  <main class="container lottery-page">
+    <section class="hero">
+      <div class="hero-card">
+        <div class="badge">추첨 도구</div>
+        <h1>프로그램 신청자 추첨</h1>
+        <p class="lead">
+          신청자 명단을 붙여넣고 선정자와 대기자를 랜덤으로 추첨할 수 있습니다.
+          전화번호는 화면과 로그에는 저장하지 않고 CSV 다운로드에만 포함합니다.
+        </p>
+        <div class="hero-actions">
+          <a class="btn-primary" href="https://tools.welmoa.kr/tools/">도구 목록</a>
+          <a class="btn-secondary" href="https://tools.welmoa.kr/blog/">관련 콘텐츠 보기</a>
+        </div>
       </div>
+    </section>
 
-      <div class="muted" style="margin-top:10px">
-        아래에 신청자 정보를 붙여넣으세요. (한 줄에 1명)
-      </div>
+    <section class="section">
+      <h2 class="section-title">추첨 설정</h2>
 
-      <textarea id="raw" placeholder="예)
+      <div class="row">
+        <div class="card">
+          <div class="tool-title">기본 설정과 명단 입력</div>
+          <p class="tool-desc">
+            추첨명, 선발 인원, 중복 제거 여부를 설정한 뒤 신청자 정보를 한 줄에 한 명씩 붙여넣으세요.
+          </p>
+
+          <div class="inline" style="margin-top:14px;">
+            <span class="pill">
+              추첨명
+              <input id="drawTitle" type="text" placeholder="예) 겨울방학 디지털드로잉 꿈나무반" />
+            </span>
+            <span class="pill">선발 <input id="pickCount" type="number" min="0" value="10" /> 명</span>
+            <label class="pill"><input id="dedupe" type="checkbox" checked /> 중복 제거(이름+생년월일)</label>
+            <label class="pill"><input id="keepLog" type="checkbox" checked /> 추첨 로그 저장(브라우저)</label>
+            <button id="btnDraw" onclick="runDraw()">추첨하기</button>
+            <button class="secondary" onclick="resetAll()">초기화</button>
+
+            <span id="privacyBadge" class="badge-info" title="화면/로그에는 전화번호를 저장하지 않고, CSV 다운로드에만 포함합니다.">
+              <span class="dot"></span> 전화번호: 화면·로그 미저장 / CSV만 포함
+            </span>
+          </div>
+
+          <div class="muted" style="margin-top:12px;">
+            아래에 신청자 정보를 붙여넣으세요. (한 줄에 1명)
+          </div>
+
+          <textarea id="raw" placeholder="예)
 홍길동,2015-03-01,010-1234-5678
 김철수,2014-11-20,01011112222
 
 또는(엑셀에서 3열 복사 후 붙여넣기: 탭 구분)
 홍길동    2015-03-01    01012345678"></textarea>
 
-      <div class="hint">
-        <div class="muted">
-          지원 형식: <code class="small">이름,생년월일,전화번호</code> / <code class="small">이름\t생년월일\t전화번호</code> / <code class="small">이름|생년월일|전화번호</code><br/>
-          생년월일은 <code class="small">YYYY-MM-DD</code> 권장. 전화번호는 자동으로 하이픈 정리되어 CSV에 저장됩니다.
+          <div class="hint">
+            <div class="muted">
+              지원 형식: <code class="small">이름,생년월일,전화번호</code> / <code class="small">이름\t생년월일\t전화번호</code> / <code class="small">이름|생년월일|전화번호</code><br/>
+              생년월일은 <code class="small">YYYY-MM-DD</code> 권장. 전화번호는 자동으로 하이픈 정리되어 CSV에 저장됩니다.
+            </div>
+          </div>
         </div>
+
+        <div class="split">
+          <div class="card">
+            <div class="panel-title">
+              <div><strong>✅ 선정자</strong> <span class="muted" id="winnerCount"></span></div>
+              <button class="secondary" id="btnWcsv" onclick="downloadCSV('winners')" disabled>선정자 CSV(전화 포함)</button>
+            </div>
+            <ol id="winners"></ol>
+          </div>
+
+          <div class="card">
+            <div class="panel-title">
+              <div><strong>🕒 대기자</strong> <span class="muted" id="waitCount"></span></div>
+              <button class="secondary" id="btnAcsv" onclick="downloadCSV('all')" disabled>전체결과 CSV(전화 포함)</button>
+            </div>
+            <ol id="waitlist"></ol>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="panel-title">
+            <div><strong>🧾 추첨 로그</strong> <span class="muted">(최근 10회)</span></div>
+            <div class="inline">
+              <button class="secondary" onclick="downloadCSV('log')">로그 CSV(전화 미포함)</button>
+              <button class="secondary danger" onclick="clearLog()">로그 삭제</button>
+            </div>
+          </div>
+
+          <div class="muted" style="margin-top:8px">
+            로그에는 <code class="small">추첨명, 추첨일시, 총인원, 선발인원, 선정자(이름/생년월일)</code>만 저장됩니다.
+          </div>
+
+          <div class="section-divider">
+            <ol id="log"></ol>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div>© Welmoa. 사회복지 실무자를 위한 도구와 정보 플랫폼</div>
+      <div class="footer-links">
+        <a href="https://tools.welmoa.kr/about/">소개</a>
+        <a href="https://tools.welmoa.kr/privacy/">개인정보처리방침</a>
+        <a href="https://tools.welmoa.kr/terms/">이용약관</a>
+        <a href="https://tools.welmoa.kr/blog/">콘텐츠 모음</a>
       </div>
     </div>
-
-    <div class="split">
-      <div class="card">
-        <div class="inline" style="justify-content:space-between">
-          <div><b>✅ 선정자</b> <span class="muted" id="winnerCount"></span></div>
-          <button class="secondary" id="btnWcsv" onclick="downloadCSV('winners')" disabled>선정자 CSV(전화 포함)</button>
-        </div>
-        <ol id="winners"></ol>
-      </div>
-
-      <div class="card">
-        <div class="inline" style="justify-content:space-between">
-          <div><b>🕒 대기자</b> <span class="muted" id="waitCount"></span></div>
-          <button class="secondary" id="btnAcsv" onclick="downloadCSV('all')" disabled>전체결과 CSV(전화 포함)</button>
-        </div>
-        <ol id="waitlist"></ol>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="inline" style="justify-content:space-between">
-        <div><b>🧾 추첨 로그</b> <span class="muted">(최근 10회)</span></div>
-        <div class="inline">
-          <button class="secondary" onclick="downloadCSV('log')">로그 CSV(전화 미포함)</button>
-          <button class="secondary danger" onclick="clearLog()">로그 삭제</button>
-        </div>
-      </div>
-      <div class="muted" style="margin-top:8px">
-        로그에는 <code class="small">추첨명, 추첨일시, 총인원, 선발인원, 선정자(이름/생년월일)</code>만 저장됩니다.
-      </div>
-      <ol id="log"></ol>
-    </div>
-  </div>
+  </footer>
 
 <script>
   function nowKSTISOString(){
@@ -123,41 +635,30 @@
     return String(s ?? "").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   }
 
-  // ✅ 전화번호 자동 하이픈 정리
-  // - 01012345678 -> 010-1234-5678
-  // - 0101234567  -> 010-123-4567
-  // - 0212345678  -> 02-1234-5678
-  // - 0311234567  -> 031-123-4567 등
   function normalizePhone(input){
     const raw = String(input ?? "").trim();
     if(!raw) return "";
-    // keep digits only
     const digits = raw.replace(/\D/g, "");
-    if(!digits) return raw; // non-digit input fallback
+    if(!digits) return raw;
 
-    // mobile 010/011/016/017/018/019 patterns
     if(/^01\d/.test(digits)){
       if(digits.length === 11) return `${digits.slice(0,3)}-${digits.slice(3,7)}-${digits.slice(7)}`;
       if(digits.length === 10) return `${digits.slice(0,3)}-${digits.slice(3,6)}-${digits.slice(6)}`;
       return digits;
     }
 
-    // Seoul area 02
     if(digits.startsWith("02")){
       if(digits.length === 10) return `02-${digits.slice(2,6)}-${digits.slice(6)}`;
       if(digits.length === 9)  return `02-${digits.slice(2,5)}-${digits.slice(5)}`;
       return digits;
     }
 
-    // Other area codes (3 digits commonly)
     if(digits.length === 10) return `${digits.slice(0,3)}-${digits.slice(3,6)}-${digits.slice(6)}`;
     if(digits.length === 11) return `${digits.slice(0,3)}-${digits.slice(3,7)}-${digits.slice(7)}`;
 
-    // fallback (e.g., extensions)
     return digits;
   }
 
-  // Parse: comma/tab/pipe
   function parseLine(line){
     let parts = [];
     if(line.includes("\t")) parts = line.split("\t");
@@ -191,7 +692,6 @@
     return out;
   }
 
-  // ✅ 화면 표시용: 전화번호 표시 안함
   function renderList(el, items){
     el.innerHTML = items.map(x=>{
       const meta = [x.dob].filter(Boolean).join(" · ");
@@ -199,7 +699,6 @@
     }).join("");
   }
 
-  // ✅ 로그 저장용: 전화번호 제거
   function stripPhone(items){
     return items.map(x=>({ name:x.name, dob:x.dob }));
   }
@@ -246,7 +745,6 @@
   function runDraw(){
     const drawTitle = document.getElementById("drawTitle").value.trim();
 
-    // ✅ 추첨명 미입력 시 경고(진행은 가능)
     if(!drawTitle){
       setPrivacyBadgeWarning(true);
       const go = confirm("추첨명이 비어 있습니다. 그래도 추첨을 진행할까요?\n(권장: 추첨명을 입력하면 기록/CSV 관리가 편합니다.)");
@@ -281,7 +779,6 @@
     document.getElementById("btnWcsv").disabled = false;
     document.getElementById("btnAcsv").disabled = false;
 
-    // lastResult에는 전화번호 포함 (CSV용)
     lastResult = {
       timestamp: nowKSTISOString(),
       drawTitle,
@@ -292,7 +789,6 @@
       waitlist
     };
 
-    // ✅ 로그에는 전화번호 제외
     const keepLog = document.getElementById("keepLog").checked;
     if(keepLog){
       const logs = loadLogs();
